@@ -30,8 +30,8 @@ void cria_arq(FILE * fp, char * a){
 void preencher(FILE * fp,char * nome){
   char namefinal[100];
   //Cria o nome do arquivo final (Nome do inicial+"".ms" ----> matriz.txt -> matriz.ms)
-  strcpy(nome,namefinal);
-  strncat(namefinal,".ms",3);
+  //strcpy(nome,namefinal);
+  //strncat(namefinal,".ms",3);
 
   int num,nline,ncol;
   float alfa;
@@ -81,7 +81,7 @@ void preencher(FILE * fp,char * nome){
    }
    fprintf(fp, "#");
 
-   }
+   
 }
 void num_vertices(int* n, int* ncol){
   *n=rand()%*ncol+1;
