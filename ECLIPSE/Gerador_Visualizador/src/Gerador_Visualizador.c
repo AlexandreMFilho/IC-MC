@@ -35,6 +35,7 @@ struct inicio{
 	float **grid;
 	struct pontoGrade* gridstart;
 	struct ponto* start;
+	struct ponto* media;
 	int totalp,totalg,nl,nc;
 }inicio;
 
@@ -72,8 +73,11 @@ float escalar(float,float);
 void pontilhado(void);
 void gradeado(void);
 void copiamat(float**,float**);
-
-
+int configm(int,float* ,float,int ,int );
+float marching_square(float*,float,int,int);
+void criaPontoM(struct inicio*,float,float);
+void polarizam(int,int,float,float **,char*);
+void interpoladorm(int , float ** ,float ,int , int ,FILE*);
 //---------------------------Declarações e Inicializações de Variáveis Globais-------------//Declarações e Inicializações de Variáveis Globais
 float cordx=0.0, cordy=0.0,telax,telay,size_x=1.0,size_y=1.0,taxa=0.0;
 int dl=0, dc=0, i, cont=0;
@@ -81,6 +85,7 @@ int tecla = 0, taxaescala;
 struct RGB cores;
 struct inicio ini;
 struct ponto* iso;
+struct ponto* wiki;
 struct pontoGrade* grid;
 char arqvert[80];
 
@@ -92,7 +97,7 @@ void pontilhado(void){
 	int lin, col;
 	lin = dl+1;
 	col = dc+1;
-	glPointSize(3);
+	glPointSize(10);
 	glBegin(GL_POINTS);
 	plotarG(*ini.gridstart,&cordx,&cordy);
 	glEnd();
@@ -109,17 +114,21 @@ void gradeado(void){
 			  for(int j= 0;j<col;j++){
 
 		 				  colorir(ini.grid[i][j]);
-		 				  glVertex2f(transladar(i,-1),transladar(j,-1));
+		 				  //glVertex2f(transladar(i,-1),transladar(j,-1));
+		 				  	  glVertex2f(transladar(escalar(i,taxa),-1),transladar(escalar(j,taxa),-1));
 		 				  colorir(ini.grid[i][j+1]);
-		 				  glVertex2f(transladar(i,-1),transladar(j+1,-1));
+		 				  //glVertex2f(transladar(i,-1),transladar(j+1,-1));
+		 				  	  glVertex2f(transladar(escalar(i,taxa),-1),transladar(escalar(j+1,taxa),-1));
 		 			  }
 		  }
 		  for(int i = 0;i<=col;i++){
 		  			  for(int j= 0;j<lin;j++){
 		  		 				  colorir(ini.grid[j][i]);
-		  		 				  glVertex2f(transladar(j,-1),transladar(i,-1));
+		  		 				  //glVertex2f(transladar(j,-1),transladar(i,-1));
+		  		 				  	  glVertex2f(transladar(escalar(j,taxa),-1),transladar(escalar(i,taxa),-1));
 		  		 				  colorir(ini.grid[j+1][i]);
-		  		 				  glVertex2f(transladar(j+1,-1),transladar(i,-1));
+		  		 				  //glVertex2f(transladar(j+1,-1),transladar(i,-1));
+		  		 				  	  glVertex2f(transladar(escalar(j+1,taxa),-1),transladar(escalar(i,taxa),-1));
 		  			  }
 		  }
 		  glScalef(0,taxaescala,0);
@@ -135,8 +144,13 @@ float escalar(float x,float tx){
 }
 //--------------------------------------------AjustesTela
 void ajustesTela(int nl,int nc){
-	size_x = 2/(nl+0.2);
-	size_y = 2/(nc+0.2);
+	size_x = 2/(nl+0.1);
+	size_y = 2/(nc+0.1);
+	if(size_x < size_y){
+		taxa = size_x;
+	}else{
+		taxa = size_y;
+	}
 }
 //--------------------------------------------Plotar
 void plotarp(struct ponto first, float* px, float *py){
@@ -160,7 +174,7 @@ void plotarp(struct ponto first, float* px, float *py){
 		}
 		//glColor3f(cores.R,cores.G,cores.B);
 		glColor3f(0.0,0.0,0.0);
-		glVertex2f(transladar(p->x,-1),transladar(p->y,-1));
+		glVertex2f(transladar(escalar(p->x,taxa),-1),transladar(escalar(p->y,taxa),-1));
 		//printf("%.6f %.6f\n",p->x,p->y);
 	    p = p->prox;
 	  }
@@ -177,7 +191,8 @@ void plotarG(struct pontoGrade first, float* px, float *py){
 		colorir(p->valor);
 		glColor3f(cores.R,cores.G,cores.B);
 		//glColor3f(1.0,0.0,0.0);
-		glVertex2f(transladar(p->i,-1),transladar(p->j,-1));
+		//glVertex2f(transladar(p->i,-1),transladar(p->j,-1));
+			glVertex2f(transladar(escalar(p->i,taxa),-1),transladar(escalar(p->j,taxa),-1));
 		//printf("i:%d j:%d val:%f\n",p->i,p->j,p->valor);
 	    p = p->prox;
 	  }
@@ -262,6 +277,17 @@ void criaPontoG(struct inicio* No,float cx, float cy,float val){
 	No->totalg = No->totalg +1;
 	//printf("\nPontoG criado com sucesso x:%f y:%f val:%f\n%f %f %f\n",novo->i,novo->j,novo->valor,cx,cy,val);
 }
+//--------------------------------------------CriaPonto
+void criaPontoM(struct inicio* No,float cx, float cy){
+	struct ponto *novo;
+	novo = (struct ponto*) malloc(sizeof(struct ponto));
+	novo->x = cx;
+	novo->y = cy;
+	novo->prox = No->media;
+	No->media = novo;
+	No->totalp = No->totalp +1;
+	printf("\nPonto criado com sucesso x:%f y:%f \n",novo->x,novo->y);
+}
 //--------------------------------------------Colorir
 void colorir(float cx){
   int inte = cx;
@@ -334,15 +360,14 @@ void copiamat(float **original, float **copia){
 		}
 	}
 }
-//--------------------------------------------Init
-void init(void)
-{
-  glOrtho (-1.1, (telax+0.1)-1,-1.1,(telay+0.1)-1, -1 ,1);
-  //glOrtho (-1.1, (telay+0.1)-1,(telax+0.1)-1,-1.1, -1 ,1);
+//--------------------------------------------init
+void init(void){
+  //glOrtho (-1.1, (telax+0.1)-1,-1.1,(telay+0.1)-1, -1 ,1);
+  glOrtho (-1.2, 1.2,1.2,-1.2, -1 ,1);
   glClearColor(0.5, 0.5, 0.5, 1.0);
   glFlush();
 }
-//--------------------------------------------Display
+//--------------------------------------------display
 void display(void){
 
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -387,6 +412,22 @@ void display(void){
 			plotarp(*ini.start, &cordx,&cordy);
 			glEnd();
 		}
+		if(tecla == 7){
+			  gradeado();
+			  glEnd();
+			  glFlush();
+			glPointSize(3);
+			glBegin(GL_LINES);
+			plotarp(*ini.media, &cordx,&cordy);
+			glEnd();
+		}
+		if(tecla == 8){
+					pontilhado();
+					glPointSize(3);
+					glBegin(GL_LINES);
+					plotarp(*ini.media, &cordx,&cordy);
+					glEnd();
+				}
 
 		//Preenchimento em L
 	  if(tecla == 10){
@@ -420,8 +461,7 @@ void display(void){
 	glFlush();
 }
 //--------------------------------------------keyboard
-void keyboard( unsigned char key, int x, int y )
-{
+void keyboard( unsigned char key, int x, int y ){
 	switch( key ) {
 
 	case 'q' : case 'Q' :
@@ -447,6 +487,12 @@ void keyboard( unsigned char key, int x, int y )
 	case 'x' : case 'X' :
 		tecla = 6;
 		break;
+
+	case 'c' : case 'C' :
+		tecla = 7;
+		break;
+	case 'v' : case 'V':
+		tecla = 8;
 	}
 		display();
 }
@@ -489,20 +535,25 @@ void preencher(FILE * fp,char * nome,float alfa){
             ar[lin] = malloc((colu+1) * sizeof(*arr[lin]));
       }
 
+      float **am = malloc((line+1) * sizeof(*arr));
+            for (int lin = 0; lin < colu+1; lin++) {
+                  am[lin] = malloc((colu+1) * sizeof(*arr[lin]));
+            }
+
       ini.grid = malloc((line+1) * sizeof(*arr));
           for (int lin = 0; lin < colu+1; lin++) {
                 ini.grid[lin] = malloc((colu+1) * sizeof(*arr[lin]));
           }
 
-
-
       //Pega dados e preenche na matriz temporária
       for(i = 0,fgets(linha,1024,fp);i<line,!feof(fp);fgets(linha,1024,fp),i++) {
         for(j = 0,pch = strtok(linha," \n#");j<colu,pch!=NULL;pch = strtok(NULL," \n#"),j++){
           ar[i][j] = atof(pch);
+          am[i][j] = atof(pch);
           ini.grid[i][j] = ar[i][j];
           //printf("%f ",ar[i][j]);
           criaPontoG(&ini,i,j,ar[i][j]);
+          //criaPontoG(&ini,i,j,am[i][j]);
         }
         //printf("\n");
       }
@@ -521,7 +572,9 @@ void preencher(FILE * fp,char * nome,float alfa){
       // }
 
    polariza(line,colu,alfa,ar,nome);
+   polarizam(line,colu,alfa,am,nome);
    free(ar);
+   free(am);
 }
 //--------------------------------------------num_vertices
 void num_vertices(int* n, int* ncol){
@@ -590,11 +643,92 @@ void polariza(int nline,int ncol, float alfa,float **matriz,char* name){
       }
 
 }
+//--------------------------------------------polarizam
+void polarizam(int nline,int ncol, float alfa,float **matriz,char* name){
+      float aux[4];
+      FILE * arq = NULL;
+
+
+      //Tratamento nome do arquivo de saída, será o "nome do arquivivo de entrada . ms"
+      char nomearq[80],*pname;
+      pname = strtok(name,".");
+      strcpy(nomearq,pname);
+      strcat(nomearq,"_M.ms");
+
+      strcpy(arqvert,nomearq);
+      //printf("O novo arquivo terá o nome %s\nA variável global copiou %s\n",nomearq,arqvert);
+
+      cria_arq(arq,nomearq);
+      arq = fopen(nomearq,"a");
+
+      fprintf(arq,"%dx%d\n",nline,ncol);
+
+      for(int i=0;i<nline;i++){
+                //printf("quadrado da linha:%d\n",i);
+      		for(int j=0;j<ncol;j++){
+
+                    //teste para ver se a leitura de quadrado a quadrado está funcionando
+		    //aux[0]=matriz[i][j];
+                    //aux[1]=matriz[i+1][j];
+                    //aux[2]=matriz[i+1][j+1];
+                    //aux[3]=matriz[i][j+1];
+
+                    int bin_dec=0;
+                    if(matriz[i][j] < alfa){
+			                  aux[0]=0;
+		                }else{
+                        aux[0]=1;
+                        bin_dec= bin_dec + 1;
+                    }
+                    if(matriz[i+1][j] < alfa){
+                        aux[1]=0;
+                    }else{
+                        aux[1]=1;
+                        bin_dec = bin_dec + pow(2,1);
+                    }
+		                  if(matriz[i+1][j+1] < alfa){
+                        aux[2]=0;
+                    }else{
+                        aux[2]=1;
+                        bin_dec = bin_dec + pow(2,2);
+                    }
+		                if(matriz[i][j+1] < alfa){
+                        aux[3]=0;
+                    }else{
+                        aux[3]=1;
+                        bin_dec = bin_dec + pow(2,3);
+                    }
+		        //printf("\n%f\t%f\t%f\t%f\n",aux[0],aux[1],aux[2],aux[3]);
+		        //printf("config:\t%d\n",bin_dec);
+            interpoladorm(configm(bin_dec,*matriz,alfa,i,j),matriz,alfa,i,j,arq);
+		 }
+     // fprintf(arq,"\n");
+      }
+
+}
 //--------------------------------------------config
 int config(int conf,float* matriz,float alfa,int nline,int ncol){
   //int* pont;
   if(conf == 5 || conf == 10){
     float aux = asymptotic_decider(matriz,alfa,nline,ncol);
+    //se aux > alfa permanece a configuração(Não acontece nada)
+    //se aux < alfa, troca de 5 para 10 e de 10 para 5
+    if(aux < alfa){
+      if(conf/5 == 1){
+        conf = 10;
+      }else if(conf/5 == 2){
+        conf = 5;
+      }
+    }
+  }
+	//5 representa que todos as arestas são interceptadas uma vez que 5 é a soma dos números que representam cada aresta
+      return conf;
+}
+//--------------------------------------------configm
+int configm(int conf,float* matriz,float alfa,int nline,int ncol){
+  //int* pont;
+  if(conf == 5 || conf == 10){
+	float aux = marching_square(matriz,alfa,nline,ncol);
     //se aux > alfa permanece a configuração(Não acontece nada)
     //se aux < alfa, troca de 5 para 10 e de 10 para 5
     if(aux < alfa){
@@ -664,6 +798,70 @@ float x = 0.0, y=0.0;
                 fprintf(final,"%f %f\n",x,y);
                 criaPonto(&ini,x,y);
 
+
+              }
+      }
+      // printf("\n");
+    //fprintf(final,"\n");
+}
+
+//--------------------------------------------interpolador
+void interpoladorm(int config, float ** fonte,float alfa,int linha, int coluna,FILE* final){
+float x = 0.0, y=0.0;
+
+        //Aqui percorre o vetor configuração
+      int tabela[][4]={{-1,-1,-1,-1},{3,0,-1,-1},{0,1,-1,-1},{3,1,-1,-1},{1,2,-1,-1},{0,1,2,3},{0,2,-1,-1},{3,2,-1,-1},{2,3,-1,-1},{0,2,-1,-1},{0,3,1,2},{2,1,-1,-1},{1,3,-1,-1},{1,0,-1,-1},{0,3,-1,-1},{5,5,5,5}};
+      // printf("Configuração da tabela:\t%d\t%d\t%d\t%d\n",tabela[config][0],tabela[config][1],tabela[config][2],tabela[config][3]);
+      //printf("\nChamou interpolador\nlinha:%d,coluna:%d\n",linha,coluna );
+      float v0 = fonte[linha][coluna];
+      float v1 = fonte[linha+1][coluna];
+      float v2 = fonte[linha+1][coluna+1];
+      float v3 = fonte[linha][coluna+1];
+
+      // printf("\nv0 fonte[%d][%d]=%f\n",linha,coluna,v0);
+      // printf("\nv1 fonte[%d][%d]=%f\n",linha+1,coluna,v1);
+      // printf("\nv2 fonte[%d][%d]=%f\n",linha+1,coluna+1,v2);
+      // printf("\nv3 fonte[%d][%d]=%f\n",linha,coluna+1,v3);
+
+      for(int i = 0;i<4;i++){
+              //printf("\ntabela :%d\n",tabela[config][i]);
+              switch(tabela[config][i]){
+
+              case 0:
+              x = 0.0;
+              y = interpola(v1,v0,alfa);
+              break;
+
+              case 1:
+              x = interpola(v1,v2,alfa);
+              y = 1.0;
+              break;
+
+              case 2:
+              x = 1.0;
+              y = interpola(v2,v3,alfa);
+              break;
+
+              case 3:
+              x = interpola(v0,v3,alfa);
+              y = 0.0;
+              break;
+
+              default:
+              x = -100;
+              y = -100;
+              break;
+
+              }
+
+              if(x > 0 || y > 0){
+                x=x+coluna;
+                y=y+linha;
+                //printf("x=%f y=%f\t",x,y);
+                fprintf(final,"%f %f\n",x,y);
+
+                criaPontoM(&ini,x,y);
+
               }
       }
       // printf("\n");
@@ -682,6 +880,10 @@ float asymptotic_decider(float* v,float a,int linha,int coluna){
   r = (q1+(alfa*(q2-q1)));
   return r;
 }
+//--------------------------------------------marching_square
+float marching_square(float* v,float a,int linha,int coluna){
+  return ((v[(linha+1)*1 + coluna]+v[linha*1+coluna]+v[(linha+1)*1+coluna]+v[linha*1+coluna])/4);
+}
 //--------------------------------------------Main
 int main(int argc, char** argv){
 		cores.R = 0.0;
@@ -692,8 +894,10 @@ int main(int argc, char** argv){
 		telay = 1;
 	*/
 		iso = NULL;
+		wiki = NULL;
 		grid = NULL;
 		ini.start = iso;
+		ini.media = wiki;
 		ini.gridstart = grid;
 		ini.totalp = 0;
 		ini.totalg = 0;
@@ -726,6 +930,8 @@ int main(int argc, char** argv){
 	  	    taxaescala = 0;
 
 	  	    imprimep(*ini.start);
+
+	  	    //imprimep(*ini.media);
 
 	  	    imprimeG(*ini.gridstart);
 
